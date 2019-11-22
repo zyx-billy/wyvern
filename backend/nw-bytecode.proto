@@ -1,0 +1,149 @@
+syntax = "proto2";
+package nominalWyvern;
+
+// P
+message Bytecode {
+    repeated TopLevelDecl topLevelDecls = 1;
+    required Expression main = 2;
+}
+
+// D
+message TopLevelDecl {
+    message NamedTypeDecl {  // new
+        required string name = 1;
+        required string selfName = 2;
+        repeated MemberDecl members = 3;
+    }
+    message SubtypeDecl {  // new
+        required string subtype = 1;
+        required Refinement lhsRefinements = 2;
+        required string supertype = 3;
+    }
+    oneof module {
+        NamedTypeDecl namedTypeDecl = 4;
+        SubtypeDecl subtypeDecl = 5;
+    }
+}
+
+// \beta
+message BaseType {
+    enum BuiltinType {
+      TOP = 1;
+      BOT = 2;
+    }
+    message PathDependentType {
+      required Path path = 1;
+      required string label = 2;
+    }
+    oneof baseType {
+      BuiltinType builtinType = 1;
+      string nominalType = 2;
+      PathDependentType pdType = 3;
+    }
+}
+
+// B
+enum Bound {
+    UPPER = 1;
+    LOWER = 2;
+    EXACT = 3;
+}
+
+// r
+message Refinement {
+    repeated TypeMemberDecl typeDecls = 1;
+}
+
+// \tau
+message Type {
+    required BaseType baseType = 1;
+    required Refinement refinement = 2;
+}
+
+// \delta
+message TypeMemberDecl {
+    required string name = 1;
+    required Bound direction = 2;
+    required Type bound = 3;
+}
+
+// \sigma
+message MemberDecl {
+    message FieldMemberDecl {
+        required string name = 1;
+        required Type type = 2;
+    }
+    message MethodMemberDecl {
+        required string name = 1;
+        required Type argType = 2;
+        required string argName = 3;
+        required Type resultType = 4;
+    }
+    oneof memberDecl {
+        TypeMemberDecl typeMemberDecl = 1;
+        FieldMemberDecl fieldMemberDecl = 2;
+        MethodMemberDecl methodMemberDecl = 3;
+    }
+}
+
+// p
+message Path {
+    message FieldAccess {
+        required Path base = 1;
+        required string field = 2;
+    }
+    oneof path {
+        string variable = 1;
+        FieldAccess fieldAccess = 2;
+    }
+}
+
+// e
+message Expression {
+    message LetExpression {
+        required string varName = 1;
+        required Expression innerExpr = 2;
+        required Expression outerExpr = 3;
+    }
+    message CallExpression {
+        required Path receiver = 1;
+        required string method = 2;
+        required Path argument = 3;
+    }
+    message NewExpression {
+        required Type type = 1;
+        required string selfName = 2;
+        repeated Definition members = 3;
+    }
+    oneof expression {
+        Path path = 1;
+        LetExpression letExpression = 2;
+        CallExpression callExpression = 3;
+        NewExpression newExpression = 4;
+    }
+}
+
+// d
+message Definition {
+    message FieldDefinition {
+        required string name = 1;
+        required Type type_ = 2;
+        required Path value = 3;
+    }
+    message MethodDefinition {
+        required string name = 1;
+        required Type argType_ = 2;
+        required string argName = 3;
+        required Type resultType_ = 4;
+        required Expression body = 5;
+    }
+    message TypeDefinition {
+        required string name = 1;
+        required Type type = 2;
+    }
+    oneof definition {
+        FieldDefinition fieldDefinition = 1;
+        MethodDefinition methodDefinition = 2;
+        TypeDefinition typeDefinition = 3;
+    }
+}
