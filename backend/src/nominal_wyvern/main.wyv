@@ -1,0 +1,39 @@
+require platform
+require stdout
+
+import support
+import nominal_wyvern.nwb_ast
+import nominal_wyvern.from_protobuf
+
+val support = support.apply(platform)
+
+val from_protobuf = from_protobuf.apply(support)
+
+def compile(wyb: Dyn): Unit
+    stdout.print("(function(){\"use strict\";")
+    stdout.print("Number.prototype._PLUS_ = function(x) { return this + x; };")
+    stdout.print("Number.prototype._HYPHEN_ = function(x) { return this - x; };")
+    stdout.print("Number.prototype._TIMES_ = function(x) { return this * x; };")
+    stdout.print("Number.prototype._DIVIDE_ = function(x) { return this / x; };")
+    stdout.print("Number.prototype._MOD_ = function(x) { return this % x; };")
+    stdout.print("Number.prototype._LESSTHAN_ = function(x) { return this < x; };")
+    stdout.print("Number.prototype._GREATERTHAN_ = function(x) { return this > x; };")
+    stdout.print("Number.prototype._EQUAL__EQUAL_ = function(x) { return this == x; };")
+    stdout.print("Number.prototype.negate = function() { return -this; };")
+    stdout.print("Number.prototype.floor = function() { return Math.floor(this); };")
+    stdout.print("Boolean.prototype.ifTrue = function(t, f) { return this ? t.apply() : f.apply(); };")
+    stdout.print("Boolean.prototype._AMPERSAND__AMPERSAND_ = function(x) { return this && x; };")
+    stdout.print("Boolean.prototype._VERTICALBAR__VERTICALBAR_ = function(x) { return this || x; };")
+    stdout.print("Boolean.prototype._NOT_ = function() { return !this; };")
+    stdout.print("String.prototype._LESSTHAN_ = function(x) { return this < x; };")
+    stdout.print("String.prototype._GREATERTHAN_ = function(x) { return this > x; };")
+    stdout.print("String.prototype._EQUAL__EQUAL_ = function(x) { return this == x; };")
+    stdout.print("String.prototype._PLUS_ = function(x) { return this + x; };")
+    stdout.print("String.prototype._length = function(x) { return this.length; };")
+    stdout.print("String.prototype.equals = function(x) { return this === x; };")
+    stdout.print("})();")
+
+val filename = support.getFirstCommandLineArg()
+val wyb = support.loadBytecode(filename)
+// compile(wyb)
+"abc"

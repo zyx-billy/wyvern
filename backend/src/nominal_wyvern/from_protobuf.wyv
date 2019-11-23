@@ -1,0 +1,133 @@
+module def from_protobuf(support: PlatformSupport) : {}
+
+import wyvern.collections.list
+import wyvern.option
+import wyvern.runtime
+
+import nominal_wyvern.nwb_ast
+
+type List = list.List
+type Option = option.Option
+
+def baseTypeFromProtobuf(protobufExpression: Dyn): nwb_ast.BaseType
+    if (protobufExpression.hasBuiltinType())
+            val builtinType = protobufExpression.getBuiltinType()
+            if (builtinType.hasTOP())
+                    nwb_ast.TOP()
+                elif (builtinType.hasBOT())
+                    nwb_ast.BOT()
+                else
+                    runtime.fail("Unsupported builtin type")
+        elif (protobufExpression.hasNamedType())
+            nwb_ast.NamedType(protobufExpression.getNamedType())
+        elif (protobufExpression.hasPathDependentType())
+            val pdt = protobufExpression.getPathDependentType()
+            val path = pathFromProtobuf(pdt.getPath())
+            val label = pdt.getLabel()
+            nwb_ast.Pdt(path, label)
+        else
+            runtime.fail("Unsupported path")
+
+def refinementFromProtobuf(protobufExpression: Dyn): nwb_ast.Refinement
+    val refs: List[Dyn] = support.dynToList(protobufExpression.getTypeDeclsList())
+    nwb_ast.Refinement(refs.map[nwb_ast.TypeMemberDecl]((s: Dyn) => typeMemberDeclFromProtobuf(s)))
+
+def typeFromProtobuf(protobufExpression: Dyn): nwb_ast.Type
+    val baseType = baseTypeFromProtobuf(protobufExpression.getBaseType())
+    val refinement = refinementFromProtobuf(protobufExpression.getRefinement())
+    nwb_ast.Type(baseType, refinement)
+
+// decls
+def boundFromProtobuf(protobufExpression: Dyn): nwb_ast.Bound
+    if (protobufExpression == 1)
+            nwb_ast.UPPER()
+        elif (protobufExpression == 2)
+            nwb_ast.LOWER()
+        elif (protobufExpression == 3)
+            nwb_ast.EXACT()
+        else
+            runtime.fail("Unsupported bound")
+
+def typeMemberDeclFromProtobuf(protobufExpression: Dyn): nwb_ast.TypeMemberDecl
+    val name = protobufExpression.getName()
+    val direction = boundFromProtobuf(protobufExpression.getDirection())
+    val bound = typeFromProtobuf(protobufExpression.getBound())
+    nwb_ast.TypeMemberDecl(name, direction, bound)
+
+def MemberDeclFromProtobuf(protobufExpression: Dyn): nwb_ast.MemberDecl
+    if (protobufExpression.hasTypeMemberDecl())
+            nwb_ast.TypeMember(typeMemberDeclFromProtobuf(protobufExpression.getTypeMemberDecl()))
+        elif (protobufExpression.hasFieldMemberDecl())
+            val fd = protobufExpression.getFieldMemberDecl()
+            val name = fd.getName()
+            val tau = typeFromProtobuf(fd.getType())
+            nwb_ast.FieldMember(nwb_ast.FieldMemberDecl(name, tau))
+        elif (protobufExpression.hasMethodMemberDecl())
+            val md = protobufExpression.getMethodMemberDecl()
+            val name = md.getName()
+            val argType = typeFromProtobuf(md.getArgType())
+            val argName = md.getArgName()
+            val resultType = typeFromProtobuf(md.getResultType())
+            nwb_ast.MethodMember(nwb_ast.MethodMemberDecl(name, argType, argName, resultType))
+        else
+            runtime.fail("Unsupported member declaration")
+
+def pathFromProtobuf(protobufExpression: Dyn): nwb_ast.Path
+    if (protobufExpression.hasVariable())
+            val v = protobufExpression.getVariable()
+            nwb_ast.Var(v)
+        elif (protobufExpression.hasFieldAccess())
+            val fieldAccess = protobufExpression.getFieldAccess()
+            val base : nwb_ast.Path = pathFromProtobuf(fieldAccess.getBase())
+            val field : String = fieldAccess.getField()
+            nwb_ast.Dot(base, field)
+        else
+            runtime.fail("Unsupported path")
+
+def memberDefnFromProtobuf(protobufExpression: Dyn): nwb_ast.MemberDefn
+    if (protobufExpression.hasTypeDefinition())
+            val td = protobufExpression.getTypeDefinition()
+            val name = td.getName()
+            val tau = typeFromProtobuf(td.getType())
+            nwb_ast.TypeMemberDefn(name, tau)
+        elif (protobufExpression.hasFieldDefinition())
+            val fd = protobufExpression.getFieldExpression()
+            val name = fd.getName()
+            val tau = typeFromProtobuf(fd.getType())
+            val value = pathFromProtobuf(fd.getPath())
+            nwb_ast.FieldMemberDefn(name, tau, value)
+        elif (protobufExpression.hasMethodDefinition())
+            val md = protobufExpression.getMethodDefinition()
+            val name = md.getName()
+            val argType = typeFromProtobuf(md.getArgType())
+            val argName = md.getArgName()
+            val resultType = typeFromProtobuf(md.getResultType())
+            val body = expressionFromProtobuf(md.getBody())
+            nwb_ast.MethodMemberDefn(name, argType, argName, resultType, body)
+        else
+            runtime.fail("Unsupported member definition")
+
+def expressionFromProtobuf(protobufExpression: Dyn): nwb_ast.Expression
+    if (protobufExpression.hasPath())
+            nwb_ast.PathExpr(pathFromProtobuf(protobufExpression.getPath()))
+        elif (protobufExpression.hasCallExpression())
+            val callExpr = protobufExpression.getCallExpression()
+            val receiver = pathFromProtobuf(callExpr.getReceiver())
+            val method = callExpr.getMethod()
+            val argument = pathFromProtobuf(callExpr.getArgument())
+            nwb_ast.CallExpr(receiver, method, argument)
+        elif (protobufExpression.hasNewExpression())
+            val newExpr = protobufExpression.getNewExpression()
+            val tau = typeFromProtobuf(newExpr.getType())
+            val selfName = newExpr.getSelfName()
+            val defns_proto = support.dynToList(newExpr.getMembersList())
+            val defns = defns_proto.map[nwb_ast.MemberDefn]((d: Dyn) => memberDefnFromProtobuf(d))
+            nwb_ast.NewExpr(tau, selfName, defns)
+        elif (protobufExpression.hasLetExpression())
+            val letExpr = protobufExpression.getLetExpression()
+            val varName = letExpr.getVarName()
+            val innerExpr = expressionFromProtobuf(letExpr.getInnerExpr())
+            val outerExpr = expressionFromProtobuf(letExpr.getOuterExpr())
+            nwb_ast.LetExpr(varName, innerExpr, outerExpr)
+        else
+            runtime.fail("Unsupported expression")

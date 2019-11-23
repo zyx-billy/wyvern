@@ -1,0 +1,87 @@
+module nwb_ast : {}
+
+import wyvern.collections.list
+import wyvern.option
+
+type List = list.List
+type Option = option.Option
+
+datatype Bound
+  UPPER
+  LOWER
+  EXACT
+
+// types
+resource datatype BaseType
+  TOP
+  BOT
+  Pdt(path: Path, label: String)
+  NamedType(name: String)
+
+resource type Refinement
+  val typeDecls: List[TypeMemberDecl]
+
+def Refinement(decls: List[TypeMemberDecl]): Refinement = new
+  val typeDecls = decls
+
+resource type Type
+  val baseType: BaseType
+  val refinement: Refinement
+
+def Type(base: BaseType, ref: Refinement): Type = new
+  val baseType = base
+  val refinement = ref
+
+// decls
+resource type TypeMemberDecl
+  val name: String
+  val direction: Bound
+  val bound: Type
+
+def TypeMemberDecl(n: String, dir: Bound, tau: Type): TypeMemberDecl = new
+  val name = n
+  val direction = dir
+  val bound = tau
+
+resource type FieldMemberDecl
+  val name: String
+  val valType: Type
+
+def FieldMemberDecl(n: String, tau: Type): FieldMemberDecl = new
+  val name = n
+  val valType = tau
+
+resource type MethodMemberDecl
+  val name: String
+  val argType: Type
+  val argName: String
+  val resultType: Type
+
+def MethodMemberDecl(n: String, argT: Type, argN: String, resT: Type): MethodMemberDecl = new
+  val name = n
+  val argType = argT
+  val argName = argN
+  val resultType = resT
+
+resource datatype MemberDecl
+  TypeMember(tdecl: TypeMemberDecl)
+  FieldMember(fdecl: FieldMemberDecl)
+  MethodMember(mdecl: MethodMemberDecl)
+
+// defn
+resource datatype MemberDefn
+  TypeMemberDefn(name: String, t: Type)
+  FieldMemberDefn(name: String, t: Type, value: Path)
+  MethodMemberDefn(name: String, argType: Type, argName: String, resultType: Type, body: Expression)
+
+// expr
+resource datatype Path
+  Var(name: String)
+  Dot(path: Path, field: String)
+
+resource datatype Expression
+  PathExpr(path: Path)
+  CallExpr(receiver: Path, method: String, argument: Path)
+  NewExpr(t: Type, selfName: String, members: List[MemberDefn])
+  LetExpr(varName: String, innerExpr: Expression, outerExpr: Expression)
+  

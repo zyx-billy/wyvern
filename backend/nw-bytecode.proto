@@ -37,7 +37,7 @@ message BaseType {
     }
     oneof baseType {
       BuiltinType builtinType = 1;
-      string nominalType = 2;
+      string namedType = 2;
       PathDependentType pdType = 3;
     }
 }
