@@ -26,9 +26,9 @@ def NamedTypeDecl(n: String, selfName: String, members: List[MemberDecl]): Named
 
 resource type SubtypeDecl
   val subtype: String
-  val lhsRefs: List[Refinement]
+  val lhsRefs: Refinement
   val supertype: String
-def SubtypeDecl(subtype: String, lhsRefs: List[Refinement], supertype: String): SubtypeDecl = new
+def SubtypeDecl(subtype: String, lhsRefs: Refinement, supertype: String): SubtypeDecl = new
   val subtype = subtype
   val lhsRefs = lhsRefs
   val supertype = supertype
@@ -107,3 +107,86 @@ resource datatype Expression
   NewExpr(t: Type, selfName: String, members: List[MemberDefn])
   LetExpr(varName: String, innerExpr: Expression, outerExpr: Expression)
   
+
+/* pretty print methods */
+val ppIndent: String = "  "
+
+def ppListHelper(f: Dyn -> String, l: List[Dyn], delim: String): String
+  var result: String = ""
+  // turn each element into a string and append them together into result
+  def appendToResult(elem: Dyn): Unit
+    result = result + delim + f(elem)
+  l.do((e:Dyn) => appendToResult(e))
+  result
+
+// top level
+def ppProgram(prog: Program): String
+  ppListHelper(x => ppNamedTypeDecl(x), prog.namedTypeDecls, "\n") + "\n\n" + \
+  ppListHelper(x => ppSubtypeDecl(x), prog.subtypeDecls, "\n") + "\n\n" + \
+  ppExpression(prog.main) + "\n"
+
+def ppNamedTypeDecl(d: NamedTypeDecl): String
+  d.name + " (" + d.selfName + " =>\n" + \
+  ppListHelper(x => ppMemberDecl(x), d.members, "\n")
+
+def ppSubtypeDecl(d: SubtypeDecl): String
+  d.subtype + " " + ppRefinement(d.lhsRefs) + " <: " + d.supertype
+
+// types
+def ppBaseType(b: BaseType): String
+  match b:
+    b:TOP => "TOP"
+    b:BOT => "BOT"
+    b:Pdt => ppPath(b.path) + "." + b.label
+    b:NamedType => b.name
+
+def ppRefinement(r: Refinement): String
+  if (r.typeDecls.length() == 0)
+      ""
+    else
+      " {" + ppListHelper(x => ppTypeMemberDecl(x), r.typeDecls, ", ") + "}"
+
+def ppType(t: Type): String
+  ppBaseType(t.baseType) + ppRefinement(t.refinement)
+
+// decls
+def ppBound(b: Bound): String
+  match b:
+    b:UPPER => " <= "
+    b:LOWER => " >= "
+    b:EXACT => " == "
+
+def ppTypeMemberDecl(d: TypeMemberDecl): String
+  ppIndent + d.name + ppBound(d.direction) + ppType(d.bound)
+
+def ppFieldMemberDecl(d: FieldMemberDecl): String
+  ppIndent + d.name + ": " + ppType(d.valType)
+
+def ppMethodMemberDecl(d: MethodMemberDecl): String
+  ppIndent + d.name + ": " + ppType(d.argType) + " " + d.argName + " -> " + ppType(d.resultType)
+
+def ppMemberDecl(d: MemberDecl): String
+  match d:
+    d:TypeMember => ppTypeMemberDecl(d.tdecl)
+    d:FieldMember => ppFieldMemberDecl(d.fdecl)
+    d:MethodMember => ppMethodMemberDecl(d.mdecl)
+
+// defn
+def ppMemberDefn(d: MemberDefn): String
+  match d:
+    d:TypeMemberDefn => ppIndent + d.name + " = " + ppType(d.t)
+    d:FieldMemberDefn => ppIndent + d.name + ": " + ppType(d.t) + " = " + ppPath(d.value)
+    d:MethodMemberDefn => ppIndent + d.name + ": " + ppType(d.argType) + " " + d.argName + " -> " + ppType(d.resultType) + " = " + ppExpression(d.body)
+
+// expr
+def ppPath(p: Path): String
+  match p:
+    p:Var => p.name
+    p:Dot => ppPath(p.path) + "." + p.field
+
+def ppExpression(e: Expression): String
+  match e:
+    e:PathExpr => ppPath(e.path)
+    e:CallExpr => ppPath(e.receiver) + "." + e.method + "(" + ppPath(e.argument) + ")"
+    e:NewExpr => "new " + ppType(e.t) + " {" + e.selfName + " =>" + ppListHelper(x => ppMemberDefn(x), e.members, ", ") + "}"
+    e:LetExpr => "let " + e.varName + " = " + ppExpression(e.innerExpr) + " in " + ppExpression(e.outerExpr)
