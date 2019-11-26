@@ -1,14 +1,40 @@
 module def from_protobuf(support: PlatformSupport) : {}
 
 import wyvern.collections.list
-import wyvern.option
 import wyvern.runtime
 
 import nominal_wyvern.nwb_ast
 
 type List = list.List
-type Option = option.Option
 
+// top level
+def programFromProtobuf(protobufExpression: Dyn): nwb_ast.Program
+    val expr = expressionFromProtobuf(protobufExpression.getMain())
+    val toplevelDecls_proto : List[Dyn] = support.dynToList(protobufExpression.getTopLevelDecls())
+    val names = list.make[nwb_ast.NamedTypeDecl]()
+    val subtypes = list.make[nwb_ast.SubtypeDecl]()
+    // append to names and subtypes lists (100% not threadsafe)
+    def categorizeTopLevelDecls(elem: Dyn): Unit
+        if (elem.hasNamedTypeDecl())
+                val decl = elem.getNamedTypeDecl()
+                val name = decl.getName()
+                val selfName = decl.getSelfName()
+                val members_proto: List[Dyn] = support.dynToList(decl.getMembers())
+                val members = members_proto.map[nwb_ast.MemberDecl]((m: Dyn) => memberDeclFromProtobuf(m))
+                names.append(nwb_ast.NamedTypeDecl(name, selfName, members))
+            elif (elem.hasSubtypeDecl())
+                val decl = elem.getSubtypeDecl()
+                val subtype = decl.getSubtype()
+                val lhsRefs = decl.getLhsRefs()
+                val supertype = decl.getSupertype()
+                subtypes.append(nwb_ast.SubtypeDecl(subtype, lhsRefs, supertype))
+            else
+                runtime.fail("Unsupported top level decl")
+        unit
+    toplevelDecls_proto.do((e:Dyn) => categorizeTopLevelDecls(e))
+    nwb_ast.Program(names, subtypes, expr)
+
+// type
 def baseTypeFromProtobuf(protobufExpression: Dyn): nwb_ast.BaseType
     if (protobufExpression.hasBuiltinType())
             val builtinType = protobufExpression.getBuiltinType()
@@ -29,8 +55,8 @@ def baseTypeFromProtobuf(protobufExpression: Dyn): nwb_ast.BaseType
             runtime.fail("Unsupported path")
 
 def refinementFromProtobuf(protobufExpression: Dyn): nwb_ast.Refinement
-    val refs: List[Dyn] = support.dynToList(protobufExpression.getTypeDeclsList())
-    nwb_ast.Refinement(refs.map[nwb_ast.TypeMemberDecl]((s: Dyn) => typeMemberDeclFromProtobuf(s)))
+    val refs_proto: List[Dyn] = support.dynToList(protobufExpression.getTypeDeclsList())
+    nwb_ast.Refinement(refs_proto.map[nwb_ast.TypeMemberDecl]((s: Dyn) => typeMemberDeclFromProtobuf(s)))
 
 def typeFromProtobuf(protobufExpression: Dyn): nwb_ast.Type
     val baseType = baseTypeFromProtobuf(protobufExpression.getBaseType())
@@ -54,7 +80,7 @@ def typeMemberDeclFromProtobuf(protobufExpression: Dyn): nwb_ast.TypeMemberDecl
     val bound = typeFromProtobuf(protobufExpression.getBound())
     nwb_ast.TypeMemberDecl(name, direction, bound)
 
-def MemberDeclFromProtobuf(protobufExpression: Dyn): nwb_ast.MemberDecl
+def memberDeclFromProtobuf(protobufExpression: Dyn): nwb_ast.MemberDecl
     if (protobufExpression.hasTypeMemberDecl())
             nwb_ast.TypeMember(typeMemberDeclFromProtobuf(protobufExpression.getTypeMemberDecl()))
         elif (protobufExpression.hasFieldMemberDecl())
