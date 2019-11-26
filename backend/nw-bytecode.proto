@@ -1,6 +1,8 @@
 syntax = "proto2";
 package nominalWyvern;
 
+option java_package = "wyvern.stdlib.support.backend.nominalWyvern";
+
 // P
 message Bytecode {
     repeated TopLevelDecl topLevelDecls = 1;

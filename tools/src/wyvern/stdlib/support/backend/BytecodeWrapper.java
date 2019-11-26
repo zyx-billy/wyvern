@@ -1,5 +1,7 @@
 package wyvern.stdlib.support.backend;
 
+import wyvern.stdlib.support.backend.nominalWyvern.NwBytecode;
+
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 
@@ -11,11 +13,11 @@ import java.util.List;
 public class BytecodeWrapper {
     public static final BytecodeWrapper bytecode = new BytecodeWrapper();
     public Object loadBytecode(String filename) {
-        BytecodeOuterClass.Bytecode bytecode = null;
+        NwBytecode.Bytecode bytecode = null;
         try {
             CodedInputStream inputStream = CodedInputStream.newInstance(new FileInputStream(filename));
             inputStream.setRecursionLimit(3000);
-            bytecode =  BytecodeOuterClass.Bytecode.parseFrom(inputStream);
+            bytecode =  NwBytecode.Bytecode.parseFrom(inputStream);
         } catch (IOException e) {
             e.printStackTrace();
         }
