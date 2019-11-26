@@ -10,7 +10,7 @@ type List = list.List
 // top level
 def programFromProtobuf(protobufExpression: Dyn): nwb_ast.Program
     val expr = expressionFromProtobuf(protobufExpression.getMain())
-    val toplevelDecls_proto : List[Dyn] = support.dynToList(protobufExpression.getTopLevelDecls())
+    val toplevelDecls_proto : List[Dyn] = support.dynToList(protobufExpression.getTopLevelDeclsList())
     val names = list.make[nwb_ast.NamedTypeDecl]()
     val subtypes = list.make[nwb_ast.SubtypeDecl]()
     // append to names and subtypes lists (100% not threadsafe)
@@ -19,7 +19,7 @@ def programFromProtobuf(protobufExpression: Dyn): nwb_ast.Program
                 val decl = elem.getNamedTypeDecl()
                 val name = decl.getName()
                 val selfName = decl.getSelfName()
-                val members_proto: List[Dyn] = support.dynToList(decl.getMembers())
+                val members_proto: List[Dyn] = support.dynToList(decl.getMembersList())
                 val members = members_proto.map[nwb_ast.MemberDecl]((m: Dyn) => memberDeclFromProtobuf(m))
                 names.append(nwb_ast.NamedTypeDecl(name, selfName, members))
             elif (elem.hasSubtypeDecl())
@@ -38,16 +38,17 @@ def programFromProtobuf(protobufExpression: Dyn): nwb_ast.Program
 def baseTypeFromProtobuf(protobufExpression: Dyn): nwb_ast.BaseType
     if (protobufExpression.hasBuiltinType())
             val builtinType = protobufExpression.getBuiltinType()
-            if (builtinType.hasTOP())
+            val enumValue : Int = builtinType.getNumber()
+            if (enumValue == 1)
                     nwb_ast.TOP()
-                elif (builtinType.hasBOT())
+                elif (enumValue == 2)
                     nwb_ast.BOT()
                 else
                     runtime.fail("Unsupported builtin type")
         elif (protobufExpression.hasNamedType())
             nwb_ast.NamedType(protobufExpression.getNamedType())
-        elif (protobufExpression.hasPathDependentType())
-            val pdt = protobufExpression.getPathDependentType()
+        elif (protobufExpression.hasPdType())
+            val pdt = protobufExpression.getPdType()
             val path = pathFromProtobuf(pdt.getPath())
             val label = pdt.getLabel()
             nwb_ast.Pdt(path, label)
@@ -65,11 +66,12 @@ def typeFromProtobuf(protobufExpression: Dyn): nwb_ast.Type
 
 // decls
 def boundFromProtobuf(protobufExpression: Dyn): nwb_ast.Bound
-    if (protobufExpression == 1)
+    val enumValue : Int = protobufExpression.getNumber()
+    if (enumValue == 1)
             nwb_ast.UPPER()
-        elif (protobufExpression == 2)
+        elif (enumValue == 2)
             nwb_ast.LOWER()
-        elif (protobufExpression == 3)
+        elif (enumValue == 3)
             nwb_ast.EXACT()
         else
             runtime.fail("Unsupported bound")

@@ -33,7 +33,12 @@ def compile(wyb: Dyn): Unit
     stdout.print("String.prototype.equals = function(x) { return this === x; };")
     stdout.print("})();")
 
-val filename = support.getFirstCommandLineArg()
-val wyb = support.loadBytecode(filename)
+// val filename = support.getFirstCommandLineArg()
+
+val wyb = support.loadBytecode("box.nwb")
+stdout.print("got bytecode\n")
+val tl = from_protobuf.programFromProtobuf(wyb)
+stdout.print("got tl\n")
+stdout.print(nwb_ast.ppProgram(tl))
 // compile(wyb)
 "abc"

@@ -115,19 +115,22 @@ def ppListHelper(f: Dyn -> String, l: List[Dyn], delim: String): String
   var result: String = ""
   // turn each element into a string and append them together into result
   def appendToResult(elem: Dyn): Unit
-    result = result + delim + f(elem)
+    if (result.length() == 0)
+        result = result + f(elem)
+      else
+        result = result + delim + f(elem)
   l.do((e:Dyn) => appendToResult(e))
   result
 
 // top level
 def ppProgram(prog: Program): String
-  ppListHelper(x => ppNamedTypeDecl(x), prog.namedTypeDecls, "\n") + "\n\n" + \
-  ppListHelper(x => ppSubtypeDecl(x), prog.subtypeDecls, "\n") + "\n\n" + \
+  ppListHelper(x => ppNamedTypeDecl(x), prog.namedTypeDecls, "\n") + "\n" + \
+  ppListHelper(x => ppSubtypeDecl(x), prog.subtypeDecls, "\n") + "\n" + \
   ppExpression(prog.main) + "\n"
 
 def ppNamedTypeDecl(d: NamedTypeDecl): String
-  d.name + " (" + d.selfName + " =>\n" + \
-  ppListHelper(x => ppMemberDecl(x), d.members, "\n")
+  d.name + " {" + d.selfName + " =>\n" + \
+  ppListHelper(x => ppMemberDecl(x), d.members, "\n") + "\n}"
 
 def ppSubtypeDecl(d: SubtypeDecl): String
   d.subtype + " " + ppRefinement(d.lhsRefs) + " <: " + d.supertype
