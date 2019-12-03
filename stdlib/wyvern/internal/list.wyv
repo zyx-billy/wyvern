@@ -17,6 +17,7 @@ resource type List
     def remove(n:Int):Boolean
     def do(f:this.E -> Any):Unit
     def map[F](f:this.E -> F):List[F] // functional map
+    def filter(f:this.E -> Boolean):List[this.E] // functional filter
     
     
 def make[E]():List[E]
@@ -100,6 +101,13 @@ def make[E]():List[E]
         def map[F](f:self.E -> F):List[F]
             val newList:List[F] = make[F]()
             self.do(e => newList.append(f(e)))
+            newList
+        def filter(f:self.E -> Boolean): List[self.E]
+            val newList:List[self.E] = make[self.E]()
+            self.do(e => (f(e)).ifTrue(
+                () => newList.append(e),
+                () => unit
+            ))
             newList
 
 // temporary hack; used only in wyvern.collections.list
