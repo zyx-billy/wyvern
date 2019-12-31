@@ -1,0 +1,103 @@
+/* subtype checker */
+
+module nominal_subtype_graph : {}
+
+import wyvern.collections.list
+import wyvern.runtime
+import wyvern.pair
+import wyvern.option
+import platform.java.dataStructures.hashmap
+
+import nominal_wyvern.nwb_ast
+
+type List = list.List
+type Pair = pair.Pair
+val hashmap = hashmap()
+
+/* directed graph from String to List[Pair[String, nwb_ast.Refinement]] */
+resource type NSGraph
+  val graph : hashmap.HashMap[String, List[Pair[String, nwb_ast.Refinement]]]
+  def getNeighbors(src: String) : List[String]
+  def getDirectedEdgesBetween(src: String, dst: String) : List[nwb_ast.Refinement]
+  /* Returns a list of paths from src to dst
+   * Each path is a list of edges, each edge is a list of refinement */
+  def findPaths(src: String, dst: String) : List[List[List[nwb_ast.Refinement]]]
+
+def make(subs: List[nwb_ast.SubtypeDecl], allNamedTypes: List[String]) : NSGraph
+  new (self) =>
+    val graph : hashmap.HashMap[String, List[Pair[String, nwb_ast.Refinement]]] = hashmap.make[String, List[Pair[String, nwb_ast.Refinement]]]()
+    def getNeighbors(src: String) : List[String]
+      if (!self.graph.containsKey(src))
+          runtime.fail("encountered unknown named type")
+        else
+          val neighbors : List[Pair[String, nwb_ast.Refinement]] = self.graph.get(src)
+          neighbors.map[String](edge => pair.fst[String, nwb_ast.Refinement](edge))
+    def getDirectedEdgesBetween(src: String, dst: String) : List[nwb_ast.Refinement]
+      if (!self.graph.containsKey(src) || !self.graph.containsKey(dst))
+          runtime.fail("encountered unknown named type")
+        else
+          val neighbors : List[Pair[String, nwb_ast.Refinement]] = self.graph.get(src)
+          val validNeighbors = neighbors.filter(edge => dst == pair.fst[String, nwb_ast.Refinement](edge))
+          validNeighbors.map[nwb_ast.Refinement](edge => pair.snd[String, nwb_ast.Refinement](edge))
+    def findPaths(src: String, dst: String) : List[List[List[nwb_ast.Refinement]]]
+      if (!self.graph.containsKey(src) || !self.graph.containsKey(dst))
+          runtime.fail("encountered unknown named type")
+        elif (src == dst)
+          list.make[List[List[nwb_ast.Refinement]]]()
+        else
+          val allPaths : List[List[String]] = list.make[List[String]]()
+          var currPath : List[String] = list.make[String]()
+          currPath.append(src)
+          // run full DFS over graph to find paths
+          // toProcess: mapping from node to unexplored neighbors
+          val toProcess : hashmap.HashMap[String, List[String]] = hashmap.make[String, List[String]]()
+          toProcess.put(src, self.getNeighbors(src))
+          def dfsLoop() : Unit
+            if (currPath.length() == 0)
+                // dfs ends here
+                unit
+              else
+                val frontNode : String = currPath.get(currPath.length() - 1).getOrElse(() => runtime.fail("DFS failed"))
+                val remainingNeighbors : List[String] = toProcess.get(frontNode)
+                if (remainingNeighbors.length() > 0)
+                    // keep processing remaining neighbors
+                    val nextNode : String = remainingNeighbors.get(remainingNeighbors.length() - 1).getOrElse(() => runtime.fail("DFS failed"))
+                    remainingNeighbors.remove(remainingNeighbors.length() - 1)
+                    if (currPath.find((node : String) => node == nextNode).isDefined)
+                        // already seen this on the current path, ignore it
+                        unit
+                      elif (nextNode == dst)
+                        // found one path! stop here
+                        val thisPath : List[String] = list.make[String]()
+                        thisPath.appendAll(currPath)
+                        thisPath.append(nextNode)
+                        allPaths.append(thisPath)
+                      else
+                        // keep going
+                        currPath.append(nextNode)
+                        toProcess.put(nextNode, self.getNeighbors(nextNode))
+                  else
+                    // pop one from currPath and try other siblings
+                    currPath.remove(currPath.length() - 1)
+                toProcess.put(frontNode, remainingNeighbors)
+                dfsLoop()
+          dfsLoop()
+
+          // transform regular paths into list of edge lists where each edge is a list of refinements
+          val result : List[List[List[nwb_ast.Refinement]]] = list.make[List[List[nwb_ast.Refinement]]]()
+          def pathTransformer(path : List[String]) : Unit
+            var prev : String = src
+            var currIdx : Int = 1
+            val declPath : List[List[nwb_ast.Refinement]] = list.make[List[nwb_ast.Refinement]]()
+            def pathTransformLoop() : Unit
+              match path.get(currIdx):
+                currStrOpt:option.Some =>
+                  declPath.append(self.getDirectedEdgesBetween(prev, currStrOpt.get()))
+                  prev = currStrOpt.get()
+                  currIdx = currIdx + 1
+                  pathTransformLoop()
+                currStrOpt:option.None => unit
+            pathTransformLoop()
+            result.append(declPath)
+          allPaths.do(path: List[String] => pathTransformer(path))
+          result
